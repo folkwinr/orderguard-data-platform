@@ -1,0 +1,38 @@
+# Private information
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Raw datasets
+data/
+*.csv
+
+# Logs and temporary files
+logs/
+*.log
+*.sqlite
+*.db
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# Airflow
+airflow/logs/
+airflow/airflow.db
+
+# Local editor files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
