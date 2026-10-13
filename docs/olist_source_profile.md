@@ -1,7 +1,10 @@
 # Olist Source Data Profile
 
-This report is generated from the original Olist CSV files.
+Generated from the original Olist CSV files.
 Raw source files are not modified.
+
+Pandas data types are inferred from source values.
+They are not final PostgreSQL column definitions.
 
 ## olist_customers_dataset.csv
 
@@ -127,14 +130,87 @@ Raw source files are not modified.
 | `product_category_name` | `str` | 0 | 0.00% |
 | `product_category_name_english` | `str` | 0 | 0.00% |
 
-## Key and Relationship Checks
+## Key Checks
 
 | Check | Count |
 |---|---:|
 | Duplicate order IDs | 0 |
 | Duplicate customer IDs | 0 |
 | Duplicate order item keys | 0 |
+| Duplicate product IDs | 0 |
+| Duplicate seller IDs | 0 |
+| Duplicate payment keys | 0 |
+| Missing order IDs | 0 |
+| Missing customer IDs | 0 |
+| Missing order item IDs | 0 |
+| Missing product IDs | 0 |
+| Missing seller IDs | 0 |
+
+## Referential Integrity Checks
+
+| Check | Count |
+|---|---:|
 | Orders without a matching customer | 0 |
+| Customers without a matching order | 0 |
 | Order items without a matching order | 0 |
+| Order items without a matching product | 0 |
+| Order items without a matching seller | 0 |
+| Payments without a matching order | 0 |
+| Reviews without a matching order | 0 |
+| Products with unmatched non-null categories | 13 |
+
+## Descriptive Findings
+
+| Check | Count |
+|---|---:|
 | Orders without order items | 775 |
+| Orders without payments | 1 |
+| Orders without reviews | 768 |
+| Unique customers | 96,096 |
+| Customers with multiple customer records | 2,997 |
+| Delivered orders without a delivery date | 8 |
+
+## Orders Without Items by Status
+
+| Order status | Orders |
+|---|---:|
+| `unavailable` | 603 |
+| `canceled` | 164 |
+| `created` | 5 |
+| `invoiced` | 2 |
+| `shipped` | 1 |
+
+## Orders Without Payment Records
+
+| Order ID | Status | Approved At | Delivered At |
+|---|---|---|---|
+| `bfbd0f9bdef84302105ad712db648a6c` | `delivered` | 2016-09-15 12:16:38 | 2016-11-09 07:47:38 |
+
+## Unmatched Product Categories
+
+| Original category | Product records |
+|---|---:|
+| `portateis_cozinha_e_preparadores_de_alimentos` | 10 |
+| `pc_gamer` | 3 |
+
+## Relationship Cardinality
+
+| Child table | Distinct orders | Orders with multiple rows | Maximum rows per order |
+|---|---:|---:|---:|
+| Order items | 98,666 | 9,803 | 21 |
+| Payments | 99,440 | 2,961 | 29 |
+| Reviews | 98,673 | 547 | 3 |
+
+## Interpretation Notes
+
+- These are source profiling results, not final quality verdicts.
+- Orders without items may be explained by their status.
+- A delivered order without a payment record requires investigation.
+- Missing category translations require reference data handling.
+- Missing reviews do not automatically indicate invalid orders.
+- Referential checks exclude null child keys; missingness is reported separately.
+- Geolocation ZIP prefixes are not unique primary keys.
+- ZIP code prefixes should be represented as text in the target schema.
+- Original CSV files are not modified.
+- No PostgreSQL ingestion or quarantine actions are performed by this script.
 
