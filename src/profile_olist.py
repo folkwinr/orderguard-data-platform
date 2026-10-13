@@ -1,418 +1,720 @@
 
+"""OrderGuard | Stage 1: General Data Profiling.
+
+QUESTION:
+What files, tables, and columns do we have?
+
+WHY:
+We need a clear source overview before deeper research.
+
+METHOD:
+Read the nine Olist CSV files and calculate basic metrics.
+
+OUTPUT:
+docs/olist_source_profile.md
+
+This script only describes the source data.
+It does not check business rules, keys, or relationships.
+It never changes a source CSV or connects to PostgreSQL.
+"""
+
+from __future__ import annotations
+
+import csv
+import hashlib
 from pathlib import Path
 
 import pandas as pd
 
 
-# Project paths
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = PROJECT_ROOT / "data" / "raw" / "olist"
-REPORT_PATH = PROJECT_ROOT / "docs" / "olist_source_profile.md"
+# --------------------------------------------------
+# 1. PROJECT PATHS
+# --------------------------------------------------
 
-EXPECTED_FILES = {
-    "olist_customers_dataset.csv",
-    "olist_geolocation_dataset.csv",
-    "olist_order_items_dataset.csv",
-    "olist_order_payments_dataset.csv",
-    "olist_order_reviews_dataset.csv",
-    "olist_orders_dataset.csv",
-    "olist_products_dataset.csv",
-    "olist_sellers_dataset.csv",
-    "product_category_name_translation.csv",
+# Find the project root from this Python file.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# Folder with the original Olist CSV files.
+SOURCE_DIR = PROJECT_ROOT / "data" / "raw" / "olist"
+
+# The English report is saved here.
+REPORT_FILE = PROJECT_ROOT / "docs" / "olist_source_profile.md"
+
+
+# --------------------------------------------------
+# 2. EXPECTED SOURCE SCHEMA
+# --------------------------------------------------
+
+# We expect nine CSV files and 52 columns in total.
+# Column names and their order must match the source.
+#
+# This is a basic schema check, not canonical mapping.
+
+EXPECTED_COLUMNS = {
+    "olist_orders_dataset.csv": [
+        "order_id",
+        "customer_id",
+        "order_status",
+        "order_purchase_timestamp",
+        "order_approved_at",
+        "order_delivered_carrier_date",
+        "order_delivered_customer_date",
+        "order_estimated_delivery_date",
+    ],
+    "olist_customers_dataset.csv": [
+        "customer_id",
+        "customer_unique_id",
+        "customer_zip_code_prefix",
+        "customer_city",
+        "customer_state",
+    ],
+    "olist_order_items_dataset.csv": [
+        "order_id",
+        "order_item_id",
+        "product_id",
+        "seller_id",
+        "shipping_limit_date",
+        "price",
+        "freight_value",
+    ],
+    "olist_order_payments_dataset.csv": [
+        "order_id",
+        "payment_sequential",
+        "payment_type",
+        "payment_installments",
+        "payment_value",
+    ],
+    "olist_order_reviews_dataset.csv": [
+        "review_id",
+        "order_id",
+        "review_score",
+        "review_comment_title",
+        "review_comment_message",
+        "review_creation_date",
+        "review_answer_timestamp",
+    ],
+    "olist_products_dataset.csv": [
+        "product_id",
+        "product_category_name",
+        "product_name_lenght",
+        "product_description_lenght",
+        "product_photos_qty",
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm",
+    ],
+    "olist_sellers_dataset.csv": [
+        "seller_id",
+        "seller_zip_code_prefix",
+        "seller_city",
+        "seller_state",
+    ],
+    "olist_geolocation_dataset.csv": [
+        "geolocation_zip_code_prefix",
+        "geolocation_lat",
+        "geolocation_lng",
+        "geolocation_city",
+        "geolocation_state",
+    ],
+    "product_category_name_translation.csv": [
+        "product_category_name",
+        "product_category_name_english",
+    ],
 }
 
 
-def count_missing_references(child_key, parent_key):
-    """Count non-null child keys without a matching parent."""
-    return int(
-        (~child_key.dropna().isin(parent_key.dropna())).sum()
-    )
+# --------------------------------------------------
+# 3. SAFE READING POLICY
+# --------------------------------------------------
+
+# WHY:
+# ZIP prefixes are codes, not numeric quantities.
+# Reading them as numbers may remove leading zeros.
+#
+# METHOD:
+# Read only these ZIP columns as strings.
+#
+# IMPORTANT:
+# Detailed ZIP format checks belong to Stage 2.
+
+TEXT_COLUMNS = {
+    "olist_customers_dataset.csv": {
+        "customer_zip_code_prefix": "string",
+    },
+    "olist_sellers_dataset.csv": {
+        "seller_zip_code_prefix": "string",
+    },
+    "olist_geolocation_dataset.csv": {
+        "geolocation_zip_code_prefix": "string",
+    },
+}
 
 
-def add_checks(report, title, checks):
-    """Add count-based checks to the report and terminal output."""
-    report.extend([
-        f"## {title}",
-        "",
-        "| Check | Count |",
-        "|---|---:|",
-    ])
+# --------------------------------------------------
+# 4. STAGE 1 CHECKLIST
+# --------------------------------------------------
 
-    print(f"\n{title}")
+# QUESTION:
+# Which general profiling checks did we perform?
+#
+# WHY:
+# Readers should understand the scope of this stage.
+#
+# METHOD:
+# Add this checklist to the generated Markdown report.
+#
+# The script writes the report only after all source
+# files have been processed successfully.
 
-    for name, count in checks.items():
-        count = int(count)
-        report.append(f"| {name} | {count:,} |")
-        print(f"{name}: {count:,}")
+GENERAL_CHECKLIST = [
+    "- [x] Verify that all nine expected CSV files exist.",
+    "- [x] Confirm that all CSV files can be read.",
+    "- [x] Calculate the size of each source file.",
+    "- [x] Count the rows in every source table.",
+    "- [x] Count the columns in every source table.",
+    "- [x] List and verify all source column names.",
+    "- [x] Record the Pandas dtype of every column.",
+    "- [x] Count NULL values in every column.",
+    "- [x] Calculate the NULL percentage of every column.",
+    "- [x] Count distinct non-NULL values in every column.",
+    "- [x] Count exact duplicate rows in every table.",
+    "- [x] Generate an overall dataset summary.",
+]
 
-    report.append("")
+ADDITIONAL_CHECKLIST = [
+    "- [x] Calculate SHA-256 fingerprints for source files.",
+    "- [x] Validate CSV headers and row field counts.",
+    "- [x] Verify the expected source column order.",
+    "- [x] Protect ZIP prefixes from losing leading zeros.",
+]
+
+# The twelve main checklist items are Stage 1 only.
+# Stage 2 will study individual column values.
+# Stage 3 will study keys and table relationships.
+# Stage 4 will document canonical PostgreSQL mapping.
 
 
-def main():
-    actual_files = {path.name for path in RAW_DIR.glob("*.csv")}
+# --------------------------------------------------
+# 5. SOURCE FILE FINGERPRINT
+# --------------------------------------------------
 
-    missing_files = sorted(EXPECTED_FILES - actual_files)
-    unexpected_files = sorted(actual_files - EXPECTED_FILES)
+def sha256_file(path: Path) -> str:
+    """Calculate the SHA-256 fingerprint of one source file.
 
-    if missing_files or unexpected_files:
-        raise ValueError(
-            f"Missing CSV files: {missing_files}; "
-            f"Unexpected CSV files: {unexpected_files}"
-        )
+    QUESTION:
+    How can we detect if source file bytes change?
 
-    report = [
-        "# Olist Source Data Profile",
-        "",
-        "Generated from the original Olist CSV files.",
-        "Raw source files are not modified.",
-        "",
-        "Pandas data types are inferred from source values.",
-        "They are not final PostgreSQL column definitions.",
-        "",
-    ]
+    WHY:
+    A file name or file size is not enough.
 
-    # Profile all nine CSV files
-    for filename in sorted(EXPECTED_FILES):
-        df = pd.read_csv(RAW_DIR / filename, low_memory=False)
+    METHOD:
+    Read small binary chunks and calculate a hash.
 
-        report.extend([
-            f"## {filename}",
-            "",
-            f"- Rows: {len(df):,}",
-            f"- Columns: {len(df.columns)}",
-            "",
-            "| Column | Pandas dtype | Missing | Missing % |",
-            "|---|---|---:|---:|",
-        ])
+    NOTE:
+    This calculates a fingerprint.
+    It does not verify the file against an official hash.
+    """
 
-        for column in df.columns:
-            missing = int(df[column].isna().sum())
-            percentage = missing / len(df) * 100 if len(df) else 0
+    digest = hashlib.sha256()
 
-            report.append(
-                f"| `{column}` | `{df[column].dtype}` | "
-                f"{missing:,} | {percentage:.2f}% |"
+    with path.open("rb") as source:
+        for chunk in iter(
+            lambda: source.read(1024 * 1024),
+            b"",
+        ):
+            digest.update(chunk)
+
+    return digest.hexdigest()
+
+
+# --------------------------------------------------
+# 6. CSV STRUCTURE VALIDATION
+# --------------------------------------------------
+
+def validate_csv_structure(
+    path: Path,
+    expected_columns: list[str],
+) -> int:
+    """Check the CSV header and the field count of every row.
+
+    QUESTION:
+    Does every CSV row have the expected number of fields?
+
+    WHY:
+    A damaged CSV row may cause incorrect reading.
+
+    METHOD:
+    Read CSV records and compare their field counts.
+
+    NOTE:
+    This is a file structure check.
+    It does not test business values.
+    """
+
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8-sig",
+            newline="",
+        ) as source:
+
+            reader = csv.reader(
+                source,
+                strict=True,
             )
 
-        report.append("")
+            header = next(reader, None)
+
+            if header != expected_columns:
+                raise ValueError(
+                    f"Unexpected columns in '{path.name}'.\n"
+                    f"Expected: {expected_columns}\n"
+                    f"Found:    {header}"
+                )
+
+            data_rows = 0
+
+            for data_rows, values in enumerate(
+                reader,
+                start=1,
+            ):
+                if len(values) != len(expected_columns):
+                    raise ValueError(
+                        f"CSV record {data_rows} in "
+                        f"'{path.name}' has {len(values)} "
+                        f"fields; expected "
+                        f"{len(expected_columns)}."
+                    )
+
+            return data_rows
+
+    except (OSError, UnicodeError, csv.Error) as error:
+        raise RuntimeError(
+            f"Cannot validate '{path.name}': {error}"
+        ) from error
+
+
+# --------------------------------------------------
+# 7. READ A SOURCE FILE
+# --------------------------------------------------
+
+def read_source(path: Path) -> pd.DataFrame:
+    """Read one original Olist CSV file with Pandas.
+
+    WHY:
+    Pandas gives us basic profiling functions.
+
+    METHOD:
+    Read the whole CSV and protect ZIP code columns.
+    """
+
+    try:
+        return pd.read_csv(
+            path,
+            encoding="utf-8-sig",
+            low_memory=False,
+            dtype=TEXT_COLUMNS.get(path.name),
+            on_bad_lines="error",
+        )
+
+    except (
+        OSError,
+        UnicodeError,
+        pd.errors.ParserError,
+    ) as error:
+
+        raise RuntimeError(
+            f"Cannot read '{path.name}': {error}"
+        ) from error
+
+
+# --------------------------------------------------
+# 8. CHECK SOURCE FILE NAMES
+# --------------------------------------------------
+
+def check_source_files() -> None:
+    """Check that the expected nine CSV files are present.
+
+    WHY:
+    We need a complete source dataset before profiling.
+    """
+
+    if not SOURCE_DIR.is_dir():
+        raise FileNotFoundError(
+            f"Source folder not found: {SOURCE_DIR}"
+        )
+
+    expected = set(EXPECTED_COLUMNS)
+
+    found = {
+        path.name
+        for path in SOURCE_DIR.glob("*.csv")
+    }
+
+    missing = sorted(expected - found)
+    extra = sorted(found - expected)
+
+    if missing or extra:
+        raise ValueError(
+            f"Source file list changed. "
+            f"Missing: {missing}. "
+            f"Unexpected: {extra}."
+        )
+
+
+# --------------------------------------------------
+# 9. PROFILE ONE COLUMN
+# --------------------------------------------------
+
+def column_profile(
+    data: pd.DataFrame,
+    column: str,
+) -> dict:
+    """Calculate basic facts for one column.
+
+    QUESTION:
+    What is the general condition of this column?
+
+    METHOD:
+    Read its dtype, NULL count, NULL rate,
+    and number of distinct non-NULL values.
+
+    NOTE:
+    We do not decide whether the values are valid here.
+    """
+
+    values = data[column]
+    row_count = len(data)
+
+    null_count = int(
+        values.isna().sum()
+    )
+
+    if row_count:
+        null_percentage = (
+            null_count / row_count * 100
+        )
+    else:
+        null_percentage = 0.0
+
+    return {
+        "dtype": str(values.dtype),
+        "null_count": null_count,
+        "null_pct": null_percentage,
+        "distinct_count": int(
+            values.nunique(dropna=True)
+        ),
+    }
+
+
+# --------------------------------------------------
+# 10. PROFILE ALL NINE FILES
+# --------------------------------------------------
+
+def profile_sources() -> str:
+    """Profile every source CSV and build a Markdown report."""
+
+    # STEP 1:
+    # Verify that all expected files exist.
+    check_source_files()
+
+    expected_column_count = sum(
+        len(columns)
+        for columns in EXPECTED_COLUMNS.values()
+    )
+
+    if (
+        len(EXPECTED_COLUMNS) != 9
+        or expected_column_count != 52
+    ):
+        raise ValueError(
+            "Expected source definition must contain "
+            "nine files and 52 columns."
+        )
+
+    file_rows = []
+    column_sections = []
+
+    total_rows = 0
+    total_cells = 0
+    total_null_cells = 0
+    total_duplicate_rows = 0
+    total_bytes = 0
+
+    # STEP 2:
+    # Profile each file in a stable order.
+
+    for filename, expected_columns in EXPECTED_COLUMNS.items():
+
+        path = SOURCE_DIR / filename
 
         print(
-            f"{filename}: "
-            f"{len(df):,} rows, {len(df.columns)} columns"
+            f"Reading {filename} ...",
+            flush=True,
         )
 
-    # Load columns needed for validation
-    orders = pd.read_csv(
-        RAW_DIR / "olist_orders_dataset.csv",
-        usecols=[
-            "order_id",
-            "customer_id",
-            "order_status",
-            "order_approved_at",
-            "order_delivered_customer_date",
-        ],
+        # Confirm the CSV structure before profiling.
+        csv_row_count = validate_csv_structure(
+            path,
+            expected_columns,
+        )
+
+        # Load the source with Pandas.
+        data = read_source(path)
+
+        # Confirm the expected column names and order.
+        actual_columns = data.columns.tolist()
+
+        if actual_columns != expected_columns:
+            raise ValueError(
+                f"Column list changed in '{filename}'.\n"
+                f"Expected: {expected_columns}\n"
+                f"Found:    {actual_columns}"
+            )
+
+        row_count = len(data)
+
+        # Confirm that CSV and Pandas row counts match.
+        if csv_row_count != row_count:
+            raise ValueError(
+                f"Row counts differ in '{filename}': "
+                f"{csv_row_count} versus {row_count}."
+            )
+
+        column_count = len(actual_columns)
+        size_bytes = path.stat().st_size
+
+        # Calculate the source file fingerprint.
+        checksum = sha256_file(path)
+
+        # An exact duplicate has the same Pandas-read
+        # values in every column of the table.
+        #
+        # The first row in a repeated group is not counted.
+        #
+        # We only count repeated rows here.
+        # Their meaning belongs to a later research stage.
+        duplicate_rows = int(
+            data.duplicated(
+                keep="first",
+            ).sum()
+        )
+
+        missing_cells = 0
+        detail_rows = []
+
+        # STEP 3:
+        # Measure each column in the current file.
+
+        for column in actual_columns:
+
+            stats = column_profile(
+                data,
+                column,
+            )
+
+            missing_cells += stats["null_count"]
+
+            # Explain whether the column was protected
+            # as text or read with Pandas type inference.
+            if column in TEXT_COLUMNS.get(filename, {}):
+                read_policy = "Text (protected ZIP)"
+            else:
+                read_policy = "Pandas inferred"
+
+            detail_rows.append(
+                f"| `{column}` "
+                f"| `{stats['dtype']}` "
+                f"| {read_policy} "
+                f"| {stats['null_count']:,} "
+                f"| {stats['null_pct']:.2f}% "
+                f"| {stats['distinct_count']:,} |"
+            )
+
+        # STEP 4:
+        # Add one row to the general file overview.
+
+        file_rows.append(
+            f"| `{filename}` "
+            f"| {row_count:,} "
+            f"| {column_count} "
+            f"| {size_bytes:,} "
+            f"| {missing_cells:,} "
+            f"| {duplicate_rows:,} |"
+        )
+
+        # STEP 5:
+        # Add a detailed column table for this file.
+
+        column_sections.extend([
+            f"### `{filename}`",
+            "",
+            f"**Rows:** {row_count:,}  ",
+            f"**Columns:** {column_count}  ",
+            f"**Size (bytes):** {size_bytes:,}  ",
+            f"**Exact duplicate rows:** {duplicate_rows:,}  ",
+            f"**SHA-256:** `{checksum}`",
+            "",
+            "| Column | Pandas dtype | Read policy "
+            "| NULLs | NULL % | Distinct (not NULL) |",
+            "|---|---|---|---:|---:|---:|",
+            *detail_rows,
+            "",
+        ])
+
+        # STEP 6:
+        # Update totals across all source files.
+
+        total_rows += row_count
+        total_cells += row_count * column_count
+        total_null_cells += missing_cells
+        total_duplicate_rows += duplicate_rows
+        total_bytes += size_bytes
+
+        print(
+            f"  {row_count:,} rows "
+            f"| {column_count} columns "
+            f"| {duplicate_rows:,} duplicate rows"
+        )
+
+    # --------------------------------------------------
+    # 11. CREATE THE ENGLISH MARKDOWN REPORT
+    # --------------------------------------------------
+
+    # The report is created only after all files have
+    # been read and profiled successfully.
+    #
+    # The checklist below documents the checks
+    # completed by this successful execution.
+
+    report = [
+        "# Olist Source Profile — Stage 1: General Data Profiling",
+        "",
+        "## Stage 1 — Verification Checklist",
+        "",
+        "**Status:** 12/12 general profiling checks completed "
+        "during this source profiling run.",
+        "",
+        *GENERAL_CHECKLIST,
+        "",
+        "### Additional source checks",
+        "",
+        *ADDITIONAL_CHECKLIST,
+        "",
+        "**Scope:** This checklist confirms source profiling "
+        "operations. It does not mean that all data values "
+        "are valid or that production DQ rules are active.",
+        "",
+        "**SHA-256 note:** Fingerprints were calculated, "
+        "but they were not compared with official reference hashes.",
+        "",
+        "## Question and purpose",
+        "",
+        "**Question:** What source files, tables, "
+        "and columns do we have?",
+        "",
+        "**Why:** We need basic source facts before "
+        "detailed research and database design.",
+        "",
+        "**Method:** Read all nine Olist CSV files "
+        "with Pandas. Measure their size, schema, "
+        "row and column counts, Pandas types, "
+        "missing values, distinct values, exact "
+        "duplicate rows, and SHA-256 fingerprints.",
+        "",
+        "## Dataset overview",
+        "",
+        f"- Expected and readable CSV files: "
+        f"**{len(EXPECTED_COLUMNS)}**",
+        f"- Columns across all files: "
+        f"**{expected_column_count}**",
+        f"- Rows summed across all files: "
+        f"**{total_rows:,}**",
+        f"- Total source file bytes: "
+        f"**{total_bytes:,}** "
+        f"({total_bytes / (1024 ** 2):.2f} MiB)",
+        f"- Missing cells across all files: "
+        f"**{total_null_cells:,}** "
+        f"({(total_null_cells / total_cells * 100) if total_cells else 0:.2f}% of cells)",
+        f"- Exact duplicate rows summed across files: "
+        f"**{total_duplicate_rows:,}**",
+        "",
+        "The total row count is a sum of nine different "
+        "source tables. It is **not** the number of "
+        "unique orders or customers.",
+        "",
+        "| Source file | Rows | Columns | Bytes "
+        "| NULL cells | Exact duplicate rows |",
+        "|---|---:|---:|---:|---:|---:|",
+        *file_rows,
+        "",
+        "## Column inventory (all 52 columns)",
+        "",
+        *column_sections,
+        "## How to read this report",
+        "",
+        "- **Pandas dtype** describes how Pandas "
+        "read a column. It is not the final PostgreSQL type.",
+        "- **Read policy** shows whether a ZIP prefix "
+        "was protected as text or Pandas inferred its type.",
+        "- **NULL** uses Pandas default CSV missing-value rules.",
+        "- **Distinct** excludes NULL values. "
+        "Repeated values are not always errors.",
+        "- **Exact duplicate rows** repeat all columns "
+        "after Pandas reading. The first copy is not counted. "
+        "This does not mean every repeated row is invalid.",
+        "- **SHA-256** records source file fingerprints "
+        "for future comparisons.",
+        "- No business rules, timestamp order checks, "
+        "primary-key tests, foreign-key tests, "
+        "or JOIN checks are performed here.",
+        "",
+        "## Next stages (not performed here)",
+        "",
+        "1. **Detailed Column Analysis:** Meanings, "
+        "values, formats, ranges, and special checks.",
+        "2. **Key and Relationship Analysis:** Keys, "
+        "table grain, links, and JOIN risks.",
+        "3. **Canonical Data Mapping:** PostgreSQL "
+        "types, source-to-target mappings, "
+        "and ingestion design decisions.",
+        "",
+    ]
+
+    return "\n".join(report)
+
+
+# --------------------------------------------------
+# 12. SAVE THE REPORT
+# --------------------------------------------------
+
+def main() -> None:
+    """Run the general profiling and save the final report.
+
+    WHY:
+    We want a repeatable report, not manual Markdown edits.
+
+    METHOD:
+    Run all checks first.
+    Write the report only after successful profiling.
+    """
+
+    report = profile_sources()
+
+    REPORT_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-    customers = pd.read_csv(
-        RAW_DIR / "olist_customers_dataset.csv",
-        usecols=["customer_id", "customer_unique_id"],
-    )
-
-    items = pd.read_csv(
-        RAW_DIR / "olist_order_items_dataset.csv",
-        usecols=[
-            "order_id",
-            "order_item_id",
-            "product_id",
-            "seller_id",
-        ],
-    )
-
-    products = pd.read_csv(
-        RAW_DIR / "olist_products_dataset.csv",
-        usecols=["product_id", "product_category_name"],
-    )
-
-    sellers = pd.read_csv(
-        RAW_DIR / "olist_sellers_dataset.csv",
-        usecols=["seller_id"],
-    )
-
-    payments = pd.read_csv(
-        RAW_DIR / "olist_order_payments_dataset.csv",
-        usecols=["order_id", "payment_sequential"],
-    )
-
-    reviews = pd.read_csv(
-        RAW_DIR / "olist_order_reviews_dataset.csv",
-        usecols=["order_id", "review_id"],
-    )
-
-    categories = pd.read_csv(
-        RAW_DIR / "product_category_name_translation.csv",
-        usecols=["product_category_name"],
-    )
-
-    # Candidate primary key checks
-    key_checks = {
-        "Duplicate order IDs":
-            orders["order_id"].duplicated().sum(),
-
-        "Duplicate customer IDs":
-            customers["customer_id"].duplicated().sum(),
-
-        "Duplicate order item keys":
-            items.duplicated(
-                subset=["order_id", "order_item_id"]
-            ).sum(),
-
-        "Duplicate product IDs":
-            products["product_id"].duplicated().sum(),
-
-        "Duplicate seller IDs":
-            sellers["seller_id"].duplicated().sum(),
-
-        "Duplicate payment keys":
-            payments.duplicated(
-                subset=["order_id", "payment_sequential"]
-            ).sum(),
-
-        "Missing order IDs":
-            orders["order_id"].isna().sum(),
-
-        "Missing customer IDs":
-            customers["customer_id"].isna().sum(),
-
-        "Missing order item IDs":
-            items["order_item_id"].isna().sum(),
-
-        "Missing product IDs":
-            products["product_id"].isna().sum(),
-
-        "Missing seller IDs":
-            sellers["seller_id"].isna().sum(),
-    }
-
-    add_checks(report, "Key Checks", key_checks)
-
-    # Referential integrity checks
-    relationship_checks = {
-        "Orders without a matching customer":
-            count_missing_references(
-                orders["customer_id"],
-                customers["customer_id"],
-            ),
-
-        "Customers without a matching order":
-            count_missing_references(
-                customers["customer_id"],
-                orders["customer_id"],
-            ),
-
-        "Order items without a matching order":
-            count_missing_references(
-                items["order_id"],
-                orders["order_id"],
-            ),
-
-        "Order items without a matching product":
-            count_missing_references(
-                items["product_id"],
-                products["product_id"],
-            ),
-
-        "Order items without a matching seller":
-            count_missing_references(
-                items["seller_id"],
-                sellers["seller_id"],
-            ),
-
-        "Payments without a matching order":
-            count_missing_references(
-                payments["order_id"],
-                orders["order_id"],
-            ),
-
-        "Reviews without a matching order":
-            count_missing_references(
-                reviews["order_id"],
-                orders["order_id"],
-            ),
-
-        "Products with unmatched non-null categories":
-            count_missing_references(
-                products["product_category_name"],
-                categories["product_category_name"],
-            ),
-    }
-
-    add_checks(
+    REPORT_FILE.write_text(
         report,
-        "Referential Integrity Checks",
-        relationship_checks,
-    )
-
-    # Identify orders without related records
-    orders_without_items = orders.loc[
-        ~orders["order_id"].isin(items["order_id"])
-    ]
-
-    orders_without_payments = orders.loc[
-        ~orders["order_id"].isin(payments["order_id"])
-    ]
-
-    orders_without_reviews = orders.loc[
-        ~orders["order_id"].isin(reviews["order_id"])
-    ]
-
-    descriptive_checks = {
-        "Orders without order items":
-            len(orders_without_items),
-
-        "Orders without payments":
-            len(orders_without_payments),
-
-        "Orders without reviews":
-            len(orders_without_reviews),
-
-        "Unique customers":
-            customers["customer_unique_id"].nunique(),
-
-        "Customers with multiple customer records":
-            (
-                customers["customer_unique_id"]
-                .value_counts() > 1
-            ).sum(),
-
-        "Delivered orders without a delivery date":
-            (
-                (orders["order_status"] == "delivered")
-                & orders["order_delivered_customer_date"].isna()
-            ).sum(),
-    }
-
-    add_checks(
-        report,
-        "Descriptive Findings",
-        descriptive_checks,
-    )
-
-    # Show orders without items by order status
-    report.extend([
-        "## Orders Without Items by Status",
-        "",
-        "| Order status | Orders |",
-        "|---|---:|",
-    ])
-
-    for status, count in (
-        orders_without_items["order_status"]
-        .value_counts()
-        .items()
-    ):
-        report.append(f"| `{status}` | {count:,} |")
-
-    report.append("")
-
-    # Show individual orders without payment records
-    report.extend([
-        "## Orders Without Payment Records",
-        "",
-        "| Order ID | Status | Approved At | Delivered At |",
-        "|---|---|---|---|",
-    ])
-
-    for _, row in orders_without_payments.iterrows():
-        approved = (
-            str(row["order_approved_at"])
-            if pd.notna(row["order_approved_at"])
-            else "NULL"
-        )
-
-        delivered = (
-            str(row["order_delivered_customer_date"])
-            if pd.notna(row["order_delivered_customer_date"])
-            else "NULL"
-        )
-
-        report.append(
-            f"| `{row['order_id']}` | `{row['order_status']}` | "
-            f"{approved} | {delivered} |"
-        )
-
-    report.append("")
-
-    # Find product categories missing from the translation table
-    unmatched_categories = products.loc[
-        products["product_category_name"].notna()
-        & ~products["product_category_name"].isin(
-            categories["product_category_name"]
-        ),
-        "product_category_name",
-    ]
-
-    report.extend([
-        "## Unmatched Product Categories",
-        "",
-        "| Original category | Product records |",
-        "|---|---:|",
-    ])
-
-    for category, count in unmatched_categories.value_counts().items():
-        report.append(f"| `{category}` | {count:,} |")
-
-    report.append("")
-
-    # Summarize one-to-many relationship cardinality
-    report.extend([
-        "## Relationship Cardinality",
-        "",
-        "| Child table | Distinct orders | Orders with multiple rows | Maximum rows per order |",
-        "|---|---:|---:|---:|",
-    ])
-
-    for name, frame in [
-        ("Order items", items),
-        ("Payments", payments),
-        ("Reviews", reviews),
-    ]:
-        counts = frame.groupby("order_id").size()
-
-        report.append(
-            f"| {name} | {frame['order_id'].nunique():,} | "
-            f"{int((counts > 1).sum()):,} | "
-            f"{int(counts.max()) if len(counts) else 0:,} |"
-        )
-
-    report.extend([
-        "",
-        "## Interpretation Notes",
-        "",
-        "- These are source profiling results, not final quality verdicts.",
-        "- Orders without items may be explained by their status.",
-        "- A delivered order without a payment record requires investigation.",
-        "- Missing category translations require reference data handling.",
-        "- Missing reviews do not automatically indicate invalid orders.",
-        "- Referential checks exclude null child keys; "
-        "missingness is reported separately.",
-        "- Geolocation ZIP prefixes are not unique primary keys.",
-        "- ZIP code prefixes should be represented as text "
-        "in the target schema.",
-        "- Original CSV files are not modified.",
-        "- No PostgreSQL ingestion or quarantine actions "
-        "are performed by this script.",
-        "",
-    ])
-
-    # Save the English-language Markdown report
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    REPORT_PATH.write_text(
-        "\n".join(report) + "\n",
         encoding="utf-8",
     )
 
-    print(f"\nReport saved: {REPORT_PATH}")
+    print(
+        f"\nStage 1 report saved: {REPORT_FILE}"
+    )
 
 
 if __name__ == "__main__":

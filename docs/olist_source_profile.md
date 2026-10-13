@@ -1,216 +1,229 @@
-# Olist Source Data Profile
+# Olist Source Profile — Stage 1: General Data Profiling
 
-Generated from the original Olist CSV files.
-Raw source files are not modified.
+## Stage 1 — Verification Checklist
 
-Pandas data types are inferred from source values.
-They are not final PostgreSQL column definitions.
+**Status:** 12/12 general profiling checks completed during this source profiling run.
 
-## olist_customers_dataset.csv
+- [x] Verify that all nine expected CSV files exist.
+- [x] Confirm that all CSV files can be read.
+- [x] Calculate the size of each source file.
+- [x] Count the rows in every source table.
+- [x] Count the columns in every source table.
+- [x] List and verify all source column names.
+- [x] Record the Pandas dtype of every column.
+- [x] Count NULL values in every column.
+- [x] Calculate the NULL percentage of every column.
+- [x] Count distinct non-NULL values in every column.
+- [x] Count exact duplicate rows in every table.
+- [x] Generate an overall dataset summary.
 
-- Rows: 99,441
-- Columns: 5
+### Additional source checks
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `customer_id` | `str` | 0 | 0.00% |
-| `customer_unique_id` | `str` | 0 | 0.00% |
-| `customer_zip_code_prefix` | `int64` | 0 | 0.00% |
-| `customer_city` | `str` | 0 | 0.00% |
-| `customer_state` | `str` | 0 | 0.00% |
+- [x] Calculate SHA-256 fingerprints for source files.
+- [x] Validate CSV headers and row field counts.
+- [x] Verify the expected source column order.
+- [x] Protect ZIP prefixes from losing leading zeros.
 
-## olist_geolocation_dataset.csv
+**Scope:** This checklist confirms source profiling operations. It does not mean that all data values are valid or that production DQ rules are active.
 
-- Rows: 1,000,163
-- Columns: 5
+**SHA-256 note:** Fingerprints were calculated, but they were not compared with official reference hashes.
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `geolocation_zip_code_prefix` | `int64` | 0 | 0.00% |
-| `geolocation_lat` | `float64` | 0 | 0.00% |
-| `geolocation_lng` | `float64` | 0 | 0.00% |
-| `geolocation_city` | `str` | 0 | 0.00% |
-| `geolocation_state` | `str` | 0 | 0.00% |
+## Question and purpose
 
-## olist_order_items_dataset.csv
+**Question:** What source files, tables, and columns do we have?
 
-- Rows: 112,650
-- Columns: 7
+**Why:** We need basic source facts before detailed research and database design.
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `order_id` | `str` | 0 | 0.00% |
-| `order_item_id` | `int64` | 0 | 0.00% |
-| `product_id` | `str` | 0 | 0.00% |
-| `seller_id` | `str` | 0 | 0.00% |
-| `shipping_limit_date` | `str` | 0 | 0.00% |
-| `price` | `float64` | 0 | 0.00% |
-| `freight_value` | `float64` | 0 | 0.00% |
+**Method:** Read all nine Olist CSV files with Pandas. Measure their size, schema, row and column counts, Pandas types, missing values, distinct values, exact duplicate rows, and SHA-256 fingerprints.
 
-## olist_order_payments_dataset.csv
+## Dataset overview
 
-- Rows: 103,886
-- Columns: 5
+- Expected and readable CSV files: **9**
+- Columns across all files: **52**
+- Rows summed across all files: **1,550,922**
+- Total source file bytes: **126,186,995** (120.34 MiB)
+- Missing cells across all files: **153,259** (1.78% of cells)
+- Exact duplicate rows summed across files: **261,831**
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `order_id` | `str` | 0 | 0.00% |
-| `payment_sequential` | `int64` | 0 | 0.00% |
-| `payment_type` | `str` | 0 | 0.00% |
-| `payment_installments` | `int64` | 0 | 0.00% |
-| `payment_value` | `float64` | 0 | 0.00% |
+The total row count is a sum of nine different source tables. It is **not** the number of unique orders or customers.
 
-## olist_order_reviews_dataset.csv
+| Source file | Rows | Columns | Bytes | NULL cells | Exact duplicate rows |
+|---|---:|---:|---:|---:|---:|
+| `olist_orders_dataset.csv` | 99,441 | 8 | 17,654,914 | 4,908 | 0 |
+| `olist_customers_dataset.csv` | 99,441 | 5 | 9,033,957 | 0 | 0 |
+| `olist_order_items_dataset.csv` | 112,650 | 7 | 15,438,671 | 0 | 0 |
+| `olist_order_payments_dataset.csv` | 103,886 | 5 | 5,777,138 | 0 | 0 |
+| `olist_order_reviews_dataset.csv` | 99,224 | 7 | 14,451,670 | 145,903 | 0 |
+| `olist_products_dataset.csv` | 32,951 | 9 | 2,379,446 | 2,448 | 0 |
+| `olist_sellers_dataset.csv` | 3,095 | 4 | 174,703 | 0 | 0 |
+| `olist_geolocation_dataset.csv` | 1,000,163 | 5 | 61,273,883 | 0 | 261,831 |
+| `product_category_name_translation.csv` | 71 | 2 | 2,613 | 0 | 0 |
 
-- Rows: 99,224
-- Columns: 7
+## Column inventory (all 52 columns)
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `review_id` | `str` | 0 | 0.00% |
-| `order_id` | `str` | 0 | 0.00% |
-| `review_score` | `int64` | 0 | 0.00% |
-| `review_comment_title` | `str` | 87,656 | 88.34% |
-| `review_comment_message` | `str` | 58,247 | 58.70% |
-| `review_creation_date` | `str` | 0 | 0.00% |
-| `review_answer_timestamp` | `str` | 0 | 0.00% |
+### `olist_orders_dataset.csv`
 
-## olist_orders_dataset.csv
+**Rows:** 99,441  
+**Columns:** 8  
+**Size (bytes):** 17,654,914  
+**Exact duplicate rows:** 0  
+**SHA-256:** `8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf`
 
-- Rows: 99,441
-- Columns: 8
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `order_id` | `str` | Pandas inferred | 0 | 0.00% | 99,441 |
+| `customer_id` | `str` | Pandas inferred | 0 | 0.00% | 99,441 |
+| `order_status` | `str` | Pandas inferred | 0 | 0.00% | 8 |
+| `order_purchase_timestamp` | `str` | Pandas inferred | 0 | 0.00% | 98,875 |
+| `order_approved_at` | `str` | Pandas inferred | 160 | 0.16% | 90,733 |
+| `order_delivered_carrier_date` | `str` | Pandas inferred | 1,783 | 1.79% | 81,018 |
+| `order_delivered_customer_date` | `str` | Pandas inferred | 2,965 | 2.98% | 95,664 |
+| `order_estimated_delivery_date` | `str` | Pandas inferred | 0 | 0.00% | 459 |
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `order_id` | `str` | 0 | 0.00% |
-| `customer_id` | `str` | 0 | 0.00% |
-| `order_status` | `str` | 0 | 0.00% |
-| `order_purchase_timestamp` | `str` | 0 | 0.00% |
-| `order_approved_at` | `str` | 160 | 0.16% |
-| `order_delivered_carrier_date` | `str` | 1,783 | 1.79% |
-| `order_delivered_customer_date` | `str` | 2,965 | 2.98% |
-| `order_estimated_delivery_date` | `str` | 0 | 0.00% |
+### `olist_customers_dataset.csv`
 
-## olist_products_dataset.csv
+**Rows:** 99,441  
+**Columns:** 5  
+**Size (bytes):** 9,033,957  
+**Exact duplicate rows:** 0  
+**SHA-256:** `983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2`
 
-- Rows: 32,951
-- Columns: 9
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `customer_id` | `str` | Pandas inferred | 0 | 0.00% | 99,441 |
+| `customer_unique_id` | `str` | Pandas inferred | 0 | 0.00% | 96,096 |
+| `customer_zip_code_prefix` | `string` | Text (protected ZIP) | 0 | 0.00% | 14,994 |
+| `customer_city` | `str` | Pandas inferred | 0 | 0.00% | 4,119 |
+| `customer_state` | `str` | Pandas inferred | 0 | 0.00% | 27 |
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `product_id` | `str` | 0 | 0.00% |
-| `product_category_name` | `str` | 610 | 1.85% |
-| `product_name_lenght` | `float64` | 610 | 1.85% |
-| `product_description_lenght` | `float64` | 610 | 1.85% |
-| `product_photos_qty` | `float64` | 610 | 1.85% |
-| `product_weight_g` | `float64` | 2 | 0.01% |
-| `product_length_cm` | `float64` | 2 | 0.01% |
-| `product_height_cm` | `float64` | 2 | 0.01% |
-| `product_width_cm` | `float64` | 2 | 0.01% |
+### `olist_order_items_dataset.csv`
 
-## olist_sellers_dataset.csv
+**Rows:** 112,650  
+**Columns:** 7  
+**Size (bytes):** 15,438,671  
+**Exact duplicate rows:** 0  
+**SHA-256:** `0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279`
 
-- Rows: 3,095
-- Columns: 4
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `order_id` | `str` | Pandas inferred | 0 | 0.00% | 98,666 |
+| `order_item_id` | `int64` | Pandas inferred | 0 | 0.00% | 21 |
+| `product_id` | `str` | Pandas inferred | 0 | 0.00% | 32,951 |
+| `seller_id` | `str` | Pandas inferred | 0 | 0.00% | 3,095 |
+| `shipping_limit_date` | `str` | Pandas inferred | 0 | 0.00% | 93,318 |
+| `price` | `float64` | Pandas inferred | 0 | 0.00% | 5,968 |
+| `freight_value` | `float64` | Pandas inferred | 0 | 0.00% | 6,999 |
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `seller_id` | `str` | 0 | 0.00% |
-| `seller_zip_code_prefix` | `int64` | 0 | 0.00% |
-| `seller_city` | `str` | 0 | 0.00% |
-| `seller_state` | `str` | 0 | 0.00% |
+### `olist_order_payments_dataset.csv`
 
-## product_category_name_translation.csv
+**Rows:** 103,886  
+**Columns:** 5  
+**Size (bytes):** 5,777,138  
+**Exact duplicate rows:** 0  
+**SHA-256:** `4f713964f2815dbbaa40b9488268c55aac3627bfce5aa96cf58d1f3616de3cc0`
 
-- Rows: 71
-- Columns: 2
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `order_id` | `str` | Pandas inferred | 0 | 0.00% | 99,440 |
+| `payment_sequential` | `int64` | Pandas inferred | 0 | 0.00% | 29 |
+| `payment_type` | `str` | Pandas inferred | 0 | 0.00% | 5 |
+| `payment_installments` | `int64` | Pandas inferred | 0 | 0.00% | 24 |
+| `payment_value` | `float64` | Pandas inferred | 0 | 0.00% | 29,077 |
 
-| Column | Pandas dtype | Missing | Missing % |
-|---|---|---:|---:|
-| `product_category_name` | `str` | 0 | 0.00% |
-| `product_category_name_english` | `str` | 0 | 0.00% |
+### `olist_order_reviews_dataset.csv`
 
-## Key Checks
+**Rows:** 99,224  
+**Columns:** 7  
+**Size (bytes):** 14,451,670  
+**Exact duplicate rows:** 0  
+**SHA-256:** `012b61c7593e34f51fa614efdf802b9c7056ce6aae5307ddb93236e7cfc797d7`
 
-| Check | Count |
-|---|---:|
-| Duplicate order IDs | 0 |
-| Duplicate customer IDs | 0 |
-| Duplicate order item keys | 0 |
-| Duplicate product IDs | 0 |
-| Duplicate seller IDs | 0 |
-| Duplicate payment keys | 0 |
-| Missing order IDs | 0 |
-| Missing customer IDs | 0 |
-| Missing order item IDs | 0 |
-| Missing product IDs | 0 |
-| Missing seller IDs | 0 |
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `review_id` | `str` | Pandas inferred | 0 | 0.00% | 98,410 |
+| `order_id` | `str` | Pandas inferred | 0 | 0.00% | 98,673 |
+| `review_score` | `int64` | Pandas inferred | 0 | 0.00% | 5 |
+| `review_comment_title` | `str` | Pandas inferred | 87,656 | 88.34% | 4,527 |
+| `review_comment_message` | `str` | Pandas inferred | 58,247 | 58.70% | 36,159 |
+| `review_creation_date` | `str` | Pandas inferred | 0 | 0.00% | 636 |
+| `review_answer_timestamp` | `str` | Pandas inferred | 0 | 0.00% | 98,248 |
 
-## Referential Integrity Checks
+### `olist_products_dataset.csv`
 
-| Check | Count |
-|---|---:|
-| Orders without a matching customer | 0 |
-| Customers without a matching order | 0 |
-| Order items without a matching order | 0 |
-| Order items without a matching product | 0 |
-| Order items without a matching seller | 0 |
-| Payments without a matching order | 0 |
-| Reviews without a matching order | 0 |
-| Products with unmatched non-null categories | 13 |
+**Rows:** 32,951  
+**Columns:** 9  
+**Size (bytes):** 2,379,446  
+**Exact duplicate rows:** 0  
+**SHA-256:** `3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc`
 
-## Descriptive Findings
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `product_id` | `str` | Pandas inferred | 0 | 0.00% | 32,951 |
+| `product_category_name` | `str` | Pandas inferred | 610 | 1.85% | 73 |
+| `product_name_lenght` | `float64` | Pandas inferred | 610 | 1.85% | 66 |
+| `product_description_lenght` | `float64` | Pandas inferred | 610 | 1.85% | 2,960 |
+| `product_photos_qty` | `float64` | Pandas inferred | 610 | 1.85% | 19 |
+| `product_weight_g` | `float64` | Pandas inferred | 2 | 0.01% | 2,204 |
+| `product_length_cm` | `float64` | Pandas inferred | 2 | 0.01% | 99 |
+| `product_height_cm` | `float64` | Pandas inferred | 2 | 0.01% | 102 |
+| `product_width_cm` | `float64` | Pandas inferred | 2 | 0.01% | 95 |
 
-| Check | Count |
-|---|---:|
-| Orders without order items | 775 |
-| Orders without payments | 1 |
-| Orders without reviews | 768 |
-| Unique customers | 96,096 |
-| Customers with multiple customer records | 2,997 |
-| Delivered orders without a delivery date | 8 |
+### `olist_sellers_dataset.csv`
 
-## Orders Without Items by Status
+**Rows:** 3,095  
+**Columns:** 4  
+**Size (bytes):** 174,703  
+**Exact duplicate rows:** 0  
+**SHA-256:** `1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e`
 
-| Order status | Orders |
-|---|---:|
-| `unavailable` | 603 |
-| `canceled` | 164 |
-| `created` | 5 |
-| `invoiced` | 2 |
-| `shipped` | 1 |
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `seller_id` | `str` | Pandas inferred | 0 | 0.00% | 3,095 |
+| `seller_zip_code_prefix` | `string` | Text (protected ZIP) | 0 | 0.00% | 2,246 |
+| `seller_city` | `str` | Pandas inferred | 0 | 0.00% | 611 |
+| `seller_state` | `str` | Pandas inferred | 0 | 0.00% | 23 |
 
-## Orders Without Payment Records
+### `olist_geolocation_dataset.csv`
 
-| Order ID | Status | Approved At | Delivered At |
-|---|---|---|---|
-| `bfbd0f9bdef84302105ad712db648a6c` | `delivered` | 2016-09-15 12:16:38 | 2016-11-09 07:47:38 |
+**Rows:** 1,000,163  
+**Columns:** 5  
+**Size (bytes):** 61,273,883  
+**Exact duplicate rows:** 261,831  
+**SHA-256:** `b514f6fc991b9566aeba02aa5d67e2c3630f034b60a0e05aa0d082a3b66d88d6`
 
-## Unmatched Product Categories
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `geolocation_zip_code_prefix` | `string` | Text (protected ZIP) | 0 | 0.00% | 19,015 |
+| `geolocation_lat` | `float64` | Pandas inferred | 0 | 0.00% | 717,360 |
+| `geolocation_lng` | `float64` | Pandas inferred | 0 | 0.00% | 717,613 |
+| `geolocation_city` | `str` | Pandas inferred | 0 | 0.00% | 8,011 |
+| `geolocation_state` | `str` | Pandas inferred | 0 | 0.00% | 27 |
 
-| Original category | Product records |
-|---|---:|
-| `portateis_cozinha_e_preparadores_de_alimentos` | 10 |
-| `pc_gamer` | 3 |
+### `product_category_name_translation.csv`
 
-## Relationship Cardinality
+**Rows:** 71  
+**Columns:** 2  
+**Size (bytes):** 2,613  
+**Exact duplicate rows:** 0  
+**SHA-256:** `a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278`
 
-| Child table | Distinct orders | Orders with multiple rows | Maximum rows per order |
-|---|---:|---:|---:|
-| Order items | 98,666 | 9,803 | 21 |
-| Payments | 99,440 | 2,961 | 29 |
-| Reviews | 98,673 | 547 | 3 |
+| Column | Pandas dtype | Read policy | NULLs | NULL % | Distinct (not NULL) |
+|---|---|---|---:|---:|---:|
+| `product_category_name` | `str` | Pandas inferred | 0 | 0.00% | 71 |
+| `product_category_name_english` | `str` | Pandas inferred | 0 | 0.00% | 71 |
 
-## Interpretation Notes
+## How to read this report
 
-- These are source profiling results, not final quality verdicts.
-- Orders without items may be explained by their status.
-- A delivered order without a payment record requires investigation.
-- Missing category translations require reference data handling.
-- Missing reviews do not automatically indicate invalid orders.
-- Referential checks exclude null child keys; missingness is reported separately.
-- Geolocation ZIP prefixes are not unique primary keys.
-- ZIP code prefixes should be represented as text in the target schema.
-- Original CSV files are not modified.
-- No PostgreSQL ingestion or quarantine actions are performed by this script.
+- **Pandas dtype** describes how Pandas read a column. It is not the final PostgreSQL type.
+- **Read policy** shows whether a ZIP prefix was protected as text or Pandas inferred its type.
+- **NULL** uses Pandas default CSV missing-value rules.
+- **Distinct** excludes NULL values. Repeated values are not always errors.
+- **Exact duplicate rows** repeat all columns after Pandas reading. The first copy is not counted. This does not mean every repeated row is invalid.
+- **SHA-256** records source file fingerprints for future comparisons.
+- No business rules, timestamp order checks, primary-key tests, foreign-key tests, or JOIN checks are performed here.
 
+## Next stages (not performed here)
+
+1. **Detailed Column Analysis:** Meanings, values, formats, ranges, and special checks.
+2. **Key and Relationship Analysis:** Keys, table grain, links, and JOIN risks.
+3. **Canonical Data Mapping:** PostgreSQL types, source-to-target mappings, and ingestion design decisions.
